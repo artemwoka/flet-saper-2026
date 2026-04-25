@@ -177,7 +177,9 @@ class MineSweeper:
 
                 gesture = ft.GestureDetector(
                     content=container,
-                    on_tap=lambda e, cx=x, cy=y: self._on_cell_tap(cx, cy)
+                    on_tap=lambda e, cx=x, cy=y: self._on_cell_tap(cx, cy),
+                    on_secondary_tap=lambda e, cx=x, cy=y: self._on_cell_secondary(cx, cy),
+                    on_long_press=lambda e, cx=x, cy=y: self._on_cell_secondary(cx, cy),
                 )
 
                 row_containers.append(container)
@@ -259,6 +261,23 @@ class MineSweeper:
             if not (cell.is_flagged and cell.is_mine):
                 cell.is_revealed = True
                 self._update_cell_ui(cell)
+
+    def _on_cell_secondary(self, x: int, y: int):
+        """Обробка правого кліку по клітинці/ встановлення прапорця"""
+        if self.status not in (STATUS_PLAY, STATUS_READY):
+            return
+        
+        if self.status == STATUS_READY:
+            self._update_status(STATUS_PLAY)
+        
+        cell = self.cells[x][y]
+        if not cell.is_revealed:
+            cell.is_flagged = not cell.is_flagged
+            self.remaining_mines += -1 if cell.is_flagged else 1
+            self.mines_label.value = f"{self.remaining_mines:03d}"
+            self._update_cell_ui(cell)
+
+        self.page.update()
     
     def _on_cell_tap(self, x: int, y: int):
         """Обробка лівого кліку по клітинці"""
@@ -267,7 +286,7 @@ class MineSweeper:
         
         if self.status == STATUS_READY:
             self._update_status(STATUS_PLAY)
-            
+
         cell = self.cells[x][y]
         if not cell.is_revealed:
             self._reveal_cell(cell)
@@ -308,6 +327,9 @@ class MineSweeper:
             else:
                 container.bgcolor = ft.Colors.GREY_200
                 container.content = None
+        elif cell.is_flagged:
+            container.bgcolor = ft.Colors.BLUE_GREY_300
+            container.content = ft.Text("🚩", size=14)
         else:
             container.bgcolor = ft.Colors.BLUE_GREY_300
             container.content = None

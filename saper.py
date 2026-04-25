@@ -15,6 +15,16 @@ STATUS_PLAY = 1
 STATUS_FAILED = 2
 STATUS_SUCCESS = 3
 
+# Емодзі для кнопки статусу
+STATUS_EMOJIS = {
+    STATUS_READY: "🟢",
+    STATUS_PLAY: "😊",
+    STATUS_FAILED: "💀",
+    STATUS_SUCCESS: "😎",
+}
+
+
+
 # Кольори цифр (кількість мін навколо клітинки)
 Num_COLORS = {
     1: ft.Colors.BLUE,
@@ -58,6 +68,10 @@ class MineSweeper:
 
         self.level = 0
         self.board_size, self.mines_count = LEVELS[self.level]
+        self.remaining_mines = self.mines_count
+        self.status = STATUS_READY
+        self.timer_start = 0
+        self.timer_running = False
 
         self.cells: list[list[Cell]] = []
         self.cell_containers: list[list[ft.Container]] = []
@@ -68,6 +82,14 @@ class MineSweeper:
     def reset(self):
         """Скидання гри та створення нового поля"""
         self.board_size, self.mines_count = LEVELS[self.level]
+        self.remaining_mines = self.mines_count
+        self.status = STATUS_READY
+        self.timer_start = 0
+        self.timer_running = False
+
+        self.mines_label.value = f"{self.remaining_mines:03d}"
+        self.timer_label.value = "000"
+        self.status_emoji.value = STATUS_EMOJIS[STATUS_READY]
 
         self._build_grid()
         self._set_mines()
@@ -77,11 +99,56 @@ class MineSweeper:
 
     def _build_ui(self):
         """Створення інтерфейсу"""
+        # Лічильник мін
+        self.mines_label = ft.Text(
+            f"{self.mines_count:03d}",
+            size=28,
+            weight=ft.FontWeight.BOLD,
+            color=ft.Colors.RED_700,
+            font_family="Consolas"
+        )
+
+        # Кнопка статусу\ перезапуску
+        self.status_emoji = ft.Text(STATUS_EMOJIS[STATUS_READY], size=24)
+        self.status_button = ft.Container(
+            content=self.status_emoji,
+            width=50,
+            height=50,
+            alignment=ft.Alignment.CENTER,
+            border=ft.Border.all(1, ft.Colors.GREY_500),
+            border_radius=5,
+            on_click=self._on_status_button_click,
+        )
+
+        # Таймер
+        self.timer_label = ft.Text(
+            "000",
+            size=28,
+            weight=ft.FontWeight.BOLD,
+            color=ft.Colors.RED_700,
+            font_family="Consolas",
+        )
+        
+        toolbar = ft.Row(
+            [
+                ft.Text("💣", size=24),
+                self.mines_label,
+                ft.Container(expand=True),
+                self.status_button,
+                ft.Container(expand=True),
+                self.timer_label,
+                ft.Text("⏱️", size=24),
+            ],
+            vertical_alignment=ft.CrossAxisAlignment.CENTER
+        )
+
+
+
         self.grid_column = ft.Column(
             spacing = 1,
             horizontal_alignment=ft.CrossAxisAlignment.CENTER 
         )
-        self.page.add(self.grid_column)
+        self.page.add(toolbar, self.grid_column)
 
     def _build_grid(self):
         """Побудова ігрового поля"""
@@ -157,6 +224,19 @@ class MineSweeper:
                     result.append((xi, yi, self.cells[xi][yi]))
         return result
 
+    def _on_status_button_click(self, e):
+        """Обробка кліку по кнопці статусу"""
+        if self.status == STATUS_PLAY:
+            # Якщо гра в процесі, то при кліку на кнопку - програш
+            self._update_status(STATUS_FAILED)
+            self._reveal_grid()
+            self.page.update()
+        elif self.status in (STATUS_FAILED, STATUS_SUCCESS):
+            # Якщо гра завершена, то при кліку на кнопку - скидання гри
+            self.reset()
+        
+
+
     def _reveal_cell(self, cell: Cell):
         """Розкриття однієї клітинки"""
         if cell.is_revealed or cell.is_flagged:
@@ -172,9 +252,22 @@ class MineSweeper:
         
         if cell.mines_around == 0:
             self._expand_reveal(cell.x, cell.y)
+
+    def _reveal_grid(self):
+        """Розкриття всього поля (при програші)"""
+        for _, _, cell in self._get_all_cells():
+            if not (cell.is_flagged and cell.is_mine):
+                cell.is_revealed = True
+                self._update_cell_ui(cell)
     
     def _on_cell_tap(self, x: int, y: int):
         """Обробка лівого кліку по клітинці"""
+        if self.status in (STATUS_FAILED, STATUS_SUCCESS):
+            return
+        
+        if self.status == STATUS_READY:
+            self._update_status(STATUS_PLAY)
+            
         cell = self.cells[x][y]
         if not cell.is_revealed:
             self._reveal_cell(cell)
@@ -218,6 +311,12 @@ class MineSweeper:
         else:
             container.bgcolor = ft.Colors.BLUE_GREY_300
             container.content = None
+
+    def _update_status(self, status: int):
+        """Оновлення статусу гри"""
+        self.status = status
+        self.status_emoji.value = STATUS_EMOJIS[status]
+        
 
 
 def main(page: ft.Page):

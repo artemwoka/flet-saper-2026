@@ -198,6 +198,39 @@ class MineSweeper:
                 )
                 #self.cell_cointainers[x][y].content = ft.Text(str(cell.mines_around))
 
+    def _check_win(self):
+        """Перевірка умови перемоги"""
+        if self.status != STATUS_PLAY:
+            return
+        
+        # 1. Виграш, якщо всі мінні клітинки позначенні прапорцями
+        if self.remaining_mines == 0:
+            if all(
+                cell.is_revealed or cell.is_flagged
+                for _, _, cell in self._get_all_cells()
+            ):
+                self._update_status(STATUS_SUCCESS)
+                self.timer_running = False
+                self._reveal_grid()
+
+        # 2. Виграш, якщо всі не мінні клітинки відкриті
+        unrevealed = []
+        for _, _, cell in self._get_all_cells():
+            if not cell.is_revealed and not cell.is_flagged:
+                unrevealed.append(cell)
+                if len(unrevealed) > self.mines_count or not cell.is_mine:
+                    return
+        
+        if len(unrevealed) == self.mines_count:
+            for cell in unrevealed:
+                cell.is_flagged = True
+                self._update_cell_ui(cell)
+            self.remaining_mines = 0
+            self.mines_label.value = f"{self.remaining_mines:03d}"
+            self._update_status(STATUS_SUCCESS)
+            self.timer_running = False
+        
+
     def _expand_reveal(self, x: int, y: int):
         """Розккриття порожніх клітинок методом заливки (BFS)"""
         queue = [(x, y )]
@@ -209,6 +242,12 @@ class MineSweeper:
                     self._update_cell_ui(cell)
                     if cell.mines_around == 0:
                         queue.append((xi, yi)) 
+    
+    def _game_over(self):
+        """Обробка програшу"""
+        self._update_status(STATUS_FAILED)
+        self.timer_running = False
+        self._reveal_grid()
 
 
     def _get_all_cells(self):
@@ -231,13 +270,13 @@ class MineSweeper:
         if self.status == STATUS_PLAY:
             # Якщо гра в процесі, то при кліку на кнопку - програш
             self._update_status(STATUS_FAILED)
+            self.timer_start_running = False
             self._reveal_grid()
             self.page.update()
         elif self.status in (STATUS_FAILED, STATUS_SUCCESS):
             # Якщо гра завершена, то при кліку на кнопку - скидання гри
             self.reset()
-        
-
+    
 
     def _reveal_cell(self, cell: Cell):
         """Розкриття однієї клітинки"""
@@ -250,6 +289,7 @@ class MineSweeper:
         if cell.is_mine:
             cell.is_end = True
             self._update_cell_ui(cell)
+            self._game_over()
             return
         
         if cell.mines_around == 0:
@@ -268,7 +308,7 @@ class MineSweeper:
             return
         
         if self.status == STATUS_READY:
-            self._update_status(STATUS_PLAY)
+            self._start_game()
         
         cell = self.cells[x][y]
         if not cell.is_revealed:
@@ -277,6 +317,7 @@ class MineSweeper:
             self.mines_label.value = f"{self.remaining_mines:03d}"
             self._update_cell_ui(cell)
 
+        self._check_win()
         self.page.update()
     
     def _on_cell_tap(self, x: int, y: int):
@@ -285,11 +326,13 @@ class MineSweeper:
             return
         
         if self.status == STATUS_READY:
-            self._update_status(STATUS_PLAY)
+            self._start_game()
 
         cell = self.cells[x][y]
         if not cell.is_revealed:
             self._reveal_cell(cell)
+        
+        self._check_win()
         self.page.update()
             
 
@@ -303,6 +346,23 @@ class MineSweeper:
                 self.cells[x][y].is_mine = True
                 #self.cell_cointainers[x][y].content = ft.Text("💣")
                 position.add((x, y))
+    
+    def _start_game(self):
+        """Початок гри: запуск таймера"""
+        self._update_status(STATUS_PLAY)
+        self.timer_start = int(time.time())
+        self.timer_start_running = True
+        self.page.run_task(self._timer_tick)
+    
+    async def _timer_tick(self):
+        """Оновлення таймера кожну секунду"""
+        import asyncio
+        
+        while self.timer_start_running and self.status == STATUS_PLAY:
+            n_secons = int(time.time() - self.timer_start)
+            self.timer_label.value = f"{n_secons:03d}"
+            self.page.update()
+            await asyncio.sleep(1)
                 
 
     def _update_cell_ui(self, cell: Cell):

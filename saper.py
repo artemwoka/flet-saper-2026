@@ -69,9 +69,15 @@ class MineSweeper:
 
         self.page = page
         self.page.title = "Сапер"
-        self.page.theme_mode = self.options.get("theme", ft.ThemeMode.LIGHT)
         self.page.padding = 10
         self.page.scroll = ft.ScrollMode.AUTO
+
+        theme_options = self.options.get("theme", ft.ThemeMode.LIGHT)
+        if "DARK" in theme_options:
+            self.page.theme_mode = ft.ThemeMode.DARK
+        else:
+            self.page.theme_mode = ft.ThemeMode.LIGHT
+
 
         self.level = 0
         self.board_size, self.mines_count = LEVELS[self.level]
@@ -373,7 +379,7 @@ class MineSweeper:
              self.page.theme_mode = ft.ThemeMode.DARK
              self.theme_button.icon = ft.Icons.LIGHT_MODE
         self.page.shared_preferences.set("theme", self.page.theme_mode)
-        self.options["theme"] = self.page.theme_mode
+        self.options["theme"] = str(self.page.theme_mode)
         self._save_options()
         self.page.update()
 

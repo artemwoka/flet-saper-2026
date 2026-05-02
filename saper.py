@@ -66,6 +66,7 @@ class MineSweeper:
         self.page.padding = 10
         self.page.scroll = ft.ScrollMode.AUTO
 
+
         self.level = 0
         self.board_size, self.mines_count = LEVELS[self.level]
         self.remaining_mines = self.mines_count
@@ -100,6 +101,7 @@ class MineSweeper:
 
     def _build_ui(self):
         """Створення інтерфейсу"""
+
         # Лічильник мін
         self.mines_label = ft.Text(
             f"{self.mines_count:03d}",
@@ -140,8 +142,15 @@ class MineSweeper:
             ],
             on_select=self._on_level_change,
         )
-
-        
+        if self.page.theme_mode == ft.ThemeMode.Dark:
+            icon = ft.Icons.LIGHT_MODE
+        else:
+            icon = ft.Icons.DARK_MODE
+        self.theme_button = ft.IconButton(
+            icon=icon,
+            on_click=self._on_theme_toggle,
+        )
+  
         toolbar = ft.Row(
             [
                 ft.Text("💣", size=24),
@@ -151,9 +160,12 @@ class MineSweeper:
                 ft.Container(expand=True),
                 self.timer_label,
                 ft.Text("⏱️", size=24),
+                self.theme_button,
+
             ],
             vertical_alignment=ft.CrossAxisAlignment.CENTER
         )
+
 
         level_row = ft.Row(
             (self.level_dropdown),
@@ -320,7 +332,17 @@ class MineSweeper:
             # Якщо гра завершена, то при кліку на кнопку - скидання гри
             self.reset()
     
+    def _on_theme_toggle(self, e):
+        if self.page.theme_mode == ft.ThemeMode.DARK:
+            self.page.theme_mode = ft.ThemeMode.LIGHT
+            self.theme_button.icon = ft.Icons.DARK_MODE
+        else:
+             self.page.theme_mode = ft.ThemeMode.DARK
+             self.theme_button.icon = ft.Icons.LIGHT_MODE
+        self.page.shared_preferences.set("theme", self.page.theme_mode)
+        self.page.update()
 
+    
     def _reveal_cell(self, cell: Cell):
         """Розкриття однієї клітинки"""
         if cell.is_revealed or cell.is_flagged:
